@@ -1,27 +1,23 @@
 [package]
 name = "pincers"
-
-[workspace]
-members = ["pincers", "examples/*"]
-resolver = "2"
-
-[workspace.package]
 edition = "2021"
 authors = ["Pinponik"]
-repository = "https://github.com/Pinponik/Pincers"
-categories = ["gui"]
+repository = "https://github.com/Ponnik/Pincers"
+categories = ["gui", "ui", "graphics", "interface", "widgets"]
 keywords = ["gui", "ui", "graphics", "interface", "widgets"]
 license = "MIT OR Apache-2.0"
 rust-version = "1.71"
 version = "0.0.0"
 
+[workspace]
+members = ["pincers", "examples/*"]
+resolver = "2"
 
 [profile.release]
 lto = "fat"
 opt-level = 2
 panic = "abort"
 strip = true
-
 
 [profile.dev]
 lto = false
