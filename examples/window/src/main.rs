@@ -1,5 +1,4 @@
 use pincers::pincers_macros;
-use pincers_macros::Witaj;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -47,16 +46,6 @@ impl ApplicationHandler for App {
 }
 
 fn main() {
-    #[derive(Witaj)]
-    struct MyStruct {
-        name: String,
-    }
-
-    let my_struct = MyStruct {
-        name: "John".to_string(),
-    };
-    my_struct.say_hello();
-
     let event_loop = EventLoop::new().unwrap();
 
     event_loop.set_control_flow(ControlFlow::Wait);
