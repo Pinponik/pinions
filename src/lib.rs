@@ -14,9 +14,12 @@ pub use heapless;
 pub use num;
 pub use num::Num;
 pub use pinions_macros;
+#[cfg(feature = "debug")]
+use std::any::type_name;
 #[cfg(not(feature = "no_std"))]
 use std::fmt::{Debug, Write};
 use std::sync::{Arc, Mutex};
+use std::task::Poll;
 use std::time::Instant;
 pub use winit;
 use winit::{
@@ -27,29 +30,29 @@ use winit::{
 };
 
 #[cfg(feature = "no_std")]
-type Str<const N: usize> = heapless::String<N>;
+pub type Str<const N: usize> = heapless::String<N>;
 
 #[cfg(not(feature = "no_std"))]
-type Str<const N: usize> = String;
+pub type Str<const N: usize> = String;
 
 #[cfg(feature = "no_std")]
-type Vect<T, const N: usize> = heapless::Vec<T, N>;
+pub type Vect<T, const N: usize> = heapless::Vec<T, N>;
 
 #[cfg(not(feature = "no_std"))]
-type Vect<T, const N: usize = 0> = Vec<T>;
+pub type Vect<T, const N: usize = 0> = Vec<T>;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct Point {
+pub struct Point {
     x: f32,
     y: f32,
 }
 
-struct Mouse {
+pub struct Mouse {
     position: Option<Point>,
     pressed: bool,
 }
 
-struct Event {
+pub struct Event {
     timestamp: Instant,
     event: isize,
 }
@@ -73,6 +76,8 @@ impl Debug for Event {
 
 impl Default for Event {
     fn default() -> Self {
+        #[cfg(feature = "debug")]
+        eprintln!("Ran Event::default()");
         Self {
             timestamp: Instant::now(),
             event: 0,
@@ -100,6 +105,13 @@ impl Ord for Event {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+pub type WinEvent = winit::event::WindowEvent;
+
+pub trait PinionsApp {
+    fn update<const E: usize>(&mut self, _events: Arc<Mutex<Vect<Event, E>>>, _event: WinEvent) {}
+}
+
 pub struct Wid<const L: usize, I: Num, const S: usize, const E: usize> {
     pub label: Str<L>,
     pub icon: Vect<I, S>,
@@ -109,6 +121,11 @@ pub struct Wid<const L: usize, I: Num, const S: usize, const E: usize> {
 
 impl<const L: usize, I: Num, const S: usize, const E: usize> Wid<L, I, S, E> {
     pub fn new() -> Self {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            eprintln!("Ran Wid::<L: {}, I: {}, S: {}, E: {}>::new()", L, i, S, E);
+        }
         let mut lbl = Str::<L>::new();
         let icon = Vect::<I, S>::new();
         Self {
@@ -135,20 +152,30 @@ pub struct Win<
     const L: usize, // label length -\
     I: Num,         // icon type      | <- for struct Wid
     const S: usize, // icon size    -/
+    A,
 > {
-    pub window: Option<Window>,
-    pub title: Str<T>,
-    pub count: u32,
-    pub poll: bool,
-    pub needs_redraw: bool,
-    pub events: Arc<Mutex<Vect<Event, E>>>,
-    pub widgets: Vect<Wid<L, I, S, E>, V>,
+    window: Option<Window>,
+    title: Str<T>,
+    count: u32,
+    poll: bool,
+    needs_redraw: bool,
+    events: Arc<Mutex<Vect<Event, E>>>,
+    widgets: Vect<Wid<L, I, S, E>, V>,
+    app: A,
 }
 
-impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize>
-    Win<T, E, V, L, I, S>
+impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize, A>
+    Win<T, E, V, L, I, S, A>
 {
-    pub fn new() -> Self {
+    pub fn new(app: A) -> Self {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}>::new()",
+                T, E, V, L, i, S
+            );
+        }
         Self {
             window: None,
             title: Str::<T>::new(),
@@ -157,21 +184,30 @@ impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, con
             needs_redraw: false,
             events: Arc::new(Mutex::new(Vect::<Event, E>::new())),
             widgets: Vect::<Wid<L, I, S, E>, V>::new(),
+            app: app,
         }
     }
 
-    pub fn default() -> Self {
-        Self::new()
+    pub fn default(app: A) -> Self {
+        Self::new(app)
     }
-    fn title(&mut self, title: Str<T>) {
+    pub fn title(&mut self, title: Str<T>) {
         self.title = title;
     }
 }
 
-impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize>
-    winit::application::ApplicationHandler for Win<T, E, V, L, I, S>
+impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize, A>
+    winit::application::ApplicationHandler for Win<T, E, V, L, I, S, A>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}>::resumed()",
+                T, E, V, L, i, S
+            );
+        }
         if self.window.is_none() {
             let window_attributes =
                 winit::window::Window::default_attributes().with_title(self.title.as_str());
@@ -193,6 +229,14 @@ impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, con
         _window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}>::window_event()",
+                T, E, V, L, i, S
+            );
+        }
         match event {
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 let point = Point {
@@ -230,6 +274,14 @@ impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, con
     }
 
     fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}>::about_to_wait()",
+                T, E, V, L, i, S
+            );
+        }
         // Poll for events if needed
         if self.poll {
             if let Some(window) = &self.window {
@@ -246,12 +298,21 @@ impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, con
     }
 }
 
-impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize>
-    Win<T, E, V, L, I, S>
+impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, const S: usize, A>
+    Win<T, E, V, L, I, S, A>
 {
     /// Start the event loop and run the application.
     /// This method will block until the event loop exits.
     pub fn run(mut self) -> Result<(), winit::error::EventLoopError> {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            let a = type_name::<A>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}, A: {}>::run()",
+                T, E, V, L, i, S, a
+            );
+        }
         let event_loop = winit::event_loop::EventLoop::new()?;
         event_loop.set_control_flow(if self.poll {
             winit::event_loop::ControlFlow::Poll
@@ -267,37 +328,29 @@ impl<const T: usize, const E: usize, const V: usize, const L: usize, I: Num, con
     }
 
     pub fn sort_events(&self) {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            let a = type_name::<A>();
+            eprintln!(
+                "Ran Win::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}, A: {}>::sort_events()",
+                T, E, V, L, i, S, a
+            );
+        }
         let mut events = self.events.lock().unwrap();
         events.as_mut_slice().sort();
     }
-}
 
-/// Sets the poll flag to true, which will cause the window to request redraws
-/// in the event loop's `about_to_wait` callback.
-pub fn set_poll<
-    const T: usize,
-    const E: usize,
-    const V: usize,
-    const L: usize,
-    I: Num,
-    const S: usize,
->(
-    win: &mut Win<T, E, V, L, I, S>,
-) {
-    win.poll = true;
-}
-
-/// Unsets the poll flag, which will stop requesting redraws in the event loop's
-/// `about_to_wait` callback.
-pub fn unset_poll<
-    const T: usize,
-    const E: usize,
-    const V: usize,
-    const L: usize,
-    I: Num,
-    const S: usize,
->(
-    win: &mut Win<T, E, V, L, I, S>,
-) {
-    win.poll = false;
+    pub fn poll(&mut self, poll: bool) {
+        #[cfg(feature = "debug")]
+        {
+            let i = type_name::<I>();
+            let a = type_name::<A>();
+            eprintln!(
+                "Ran set_poll::<T: {}, E: {}, V: {}, L: {}, I: {}, S: {}, A: {}>(poll: {})",
+                T, E, V, L, i, S, a, poll
+            );
+        }
+        self.poll = poll;
+    }
 }

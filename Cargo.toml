@@ -32,3 +32,4 @@ num = "0.1.43"
 [features]
 default = []
 no_std = ["dep:heapless"]
+debug = []
