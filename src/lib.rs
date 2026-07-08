@@ -1,8 +1,8 @@
-//!                          ____  _       _
-//!                         / __ \(_)___  (_)___  ____  _____
-//!                        / /_/ / / __ \/ / __ \/ __ \/ ___/
-//!                       / ____/ / / / / /_/ / / / (__  )
-//!                      /_/   /_/_/ /_/_/\____/_/ /_/____/
+#!/                          ____  _       _
+//                         / __ \(_)___  (_)___  ____  _____
+//                        / /_/ / / __ \/ / __ \/ __ \/ ___/
+//                       / ____/ / / / / /_/ / / / (__  )
+//                      /_/   /_/_/ /_/_/\____/_/ /_/____/
 //!
 //!           A fast and easy-to-use GUI library running on microcontrolleres
 
@@ -127,15 +127,16 @@ pub trait PinionsApp {
     fn update<const E: usize>(&mut self, _events: Arc<Mutex<Vect<Event, E>>>, _event: WinEvent) {}
 }
 
-pub struct Wid<const T: usize, const L: usize, I: Num, const S: usize, const E: usize, A> {
+pub struct Wid<const L: usize, I: Num, const S: usize, const E: usize, A> {
     pub label: Str<L>,
+    pub label_closure: Option<Box<dyn FnMut(&mut A) -> Str<L> + 'static>>,
     pub icon: Vect<I, S>,
     pub mouse: Mouse,
     pub events: Arc<Mutex<Vect<Event, E>>>,
     pub callback: Box<
         dyn FnMut(
                 &mut Self,
-                &mut Win<T, E, L, I, S, A>,
+                &mut Win<L, I, S, E, A>,
                 &mut A,
                 Arc<Mutex<Vect<Event, E>>>,
                 CallbackEvent,
@@ -155,6 +156,7 @@ impl<const L: usize, I: Num, const S: usize, const E: usize, A> Wid<L, I, S, E, 
         let icon = Vect::<I, S>::new();
         Self {
             label: lbl,
+            label_closure: None,
             icon,
             mouse: Mouse {
                 position: None,
@@ -166,12 +168,26 @@ impl<const L: usize, I: Num, const S: usize, const E: usize, A> Wid<L, I, S, E, 
         }
     }
 
+    pub fn label<F>(mut self, f: F) -> &mut Self
+    where
+        F: FnMut(&mut A) -> Str<L> + 'static,
+    {
+        self.label_closure = Some(Box::new(f));
+        self
+    }
+
     pub fn fun<F>(&mut self, f: F) -> &mut Self
     where
         F: FnMut(&mut Self, &mut A, Arc<Mutex<Vect<Event, E>>>, CallbackEvent) + 'static,
     {
         self.callback = Box::new(f);
         self
+    }
+
+    pub fn update_label(&mut self, app: &mut A) {
+        if let Some(ref mut f) = self.label_closure {
+            self.label = f(app);
+        }
     }
 
     pub fn sort_events(&self) {
@@ -182,14 +198,15 @@ impl<const L: usize, I: Num, const S: usize, const E: usize, A> Wid<L, I, S, E, 
 
 pub struct Win<
     const T: usize, // title length
-    const E: usize, // event length
     const L: usize, // label length
     I: Num,         // icon type
     const S: usize, // icon size
+    const E: usize, // event length
     A,
 > {
     window: Option<Window>,
     title: Str<T>,
+    title_closure: Option<Box<dyn FnMut(&mut A) -> Str<T> + 'static>>,
     poll: bool,
     needs_redraw: bool,
     events: Arc<Mutex<Vect<Event, E>>>,
@@ -199,8 +216,8 @@ pub struct Win<
     app: A,
 }
 
-impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
-    Win<T, E, L, I, S, A>
+impl<const T: usize, const L: usize, I: Num, const S: usize, const E: usize, A>
+    Win<T, L, I, S, E, A>
 {
     pub fn new(app: A) -> Self {
         #[cfg(feature = "debug")]
@@ -208,13 +225,14 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::new()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::new()",
+                T, L, i, S, E, a
             );
         }
         Self {
             window: None,
             title: Str::<T>::new(),
+            title_closure: None,
             poll: false,
             needs_redraw: false,
             events: Arc::new(Mutex::new(Vect::<Event, E>::new())),
@@ -222,6 +240,20 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             mouse_position: None,
             widgets: Vec::new(),
             app,
+        }
+    }
+
+    pub fn title<F>(mut self, f: F) -> Self
+    where
+        F: FnMut(&mut A) -> Str<T> + 'static,
+    {
+        self.title_closure = Some(Box::new(f));
+        self
+    }
+
+    pub fn update_title(&mut self) {
+        if let Some(ref mut f) = self.title_closure {
+            self.title = f(&mut self.app);
         }
     }
 
@@ -251,8 +283,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
     }
 }
 
-impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
-    winit::application::ApplicationHandler for Win<T, E, L, I, S, A>
+impl<const T: usize, const L: usize, I: Num, const S: usize, const E: usize, A>
+    winit::application::ApplicationHandler for Win<T, L, I, S, E, A>
 {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         #[cfg(feature = "debug")]
@@ -260,8 +292,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::resumed()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::resumed()",
+                T, L, i, S, E, a
             );
         }
         if self.window.is_none() {
@@ -290,8 +322,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::window_event()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::window_event()",
+                T, L, i, S, E, a
             );
         }
         match event {
@@ -357,8 +389,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::about_to_wait()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::about_to_wait()",
+                T, L, i, S, E, a
             );
         }
         // Poll for events if needed
@@ -366,6 +398,12 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
+        }
+        // Update title
+        self.update_title();
+        // Update labels for all widgets
+        for widget in &mut self.widgets {
+            widget.update_label(&mut self.app);
         }
         // Redraw if needed
         if self.needs_redraw {
@@ -377,8 +415,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
     }
 }
 
-impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
-    Win<T, E, L, I, S, A>
+impl<const T: usize, const L: usize, I: Num, const S: usize, const E: usize, A>
+    Win<T, L, I, S, E, A>
 {
     /// Start the event loop and run the application.
     /// This method will block until the event loop exits.
@@ -388,8 +426,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::run()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::run()",
+                T, L, i, S, E, a
             );
         }
         let event_loop = winit::event_loop::EventLoop::new()?;
@@ -412,8 +450,8 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran Win::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>::sort_events()",
-                T, E, L, i, S, a
+                "Ran Win::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>::sort_events()",
+                T, L, i, S, E, a
             );
         }
         let mut events = self.events.lock().unwrap();
@@ -426,10 +464,70 @@ impl<const T: usize, const E: usize, const L: usize, I: Num, const S: usize, A>
             let i = type_name::<I>();
             let a = type_name::<A>();
             eprintln!(
-                "Ran set_poll::<T: {}, E: {}, L: {}, I: {}, S: {}, A: {}>(poll: {})",
-                T, E, L, i, S, a, poll
+                "Ran set_poll::<T: {}, L: {}, I: {}, S: {}, E: {}, A: {}>(poll: {})",
+                T, L, i, S, E, a, poll
             );
         }
         self.poll = poll;
     }
+}
+
+#[cfg(not(feature = "no_std"))]
+pub mod easy {
+    use super::*;
+
+    pub type Button<const E: usize, A> = Wid<0, u8, 0, E, A>;
+    pub type Label<const E: usize, A> = Wid<0, u8, 0, E, A>;
+    pub type Window<const T: usize, const E: usize, A> = Win<T, 0, u8, 0, E, A>;
+
+    impl<const E: usize, A> Button<E, A> {
+        pub fn label_static<F>(mut self, f: F) -> Self
+        where
+            F: FnMut() -> String + 'static,
+        {
+            self.label(move |app| f());
+            self
+        }
+
+        pub fn on_click<F>(mut self, f: F) -> Self
+        where
+            F: FnMut(&mut A) + 'static,
+        {
+            self.fun(move |app, _| {
+                f(app);
+            });
+            self
+        }
+    }
+
+    impl<const E: usize, A> Label<E, A> {
+        pub fn label_dynamic<F>(mut self, f: F) -> Self
+        where
+            F: FnMut(&mut A) -> String + 'static,
+        {
+            self.label(move |app| f(app));
+            self
+        }
+    }
+
+    impl<const T: usize, const E: usize, A> Window<T, E, A> {
+        pub fn title<F>(mut self, f: F) -> Self
+        where
+            F: FnMut(&mut A) -> String + 'static,
+        {
+            self.title(move |app| f(app));
+            self
+        }
+
+        pub fn widgets(&mut self) -> &mut Vec<Wid<0, u8, 0, E, A>> {
+            &mut self.widgets
+        }
+    }
+}
+
+pub use prelude::*;
+
+pub mod prelude {
+    pub use crate::easy::{Button, Label, Window};
+    pub use crate::{Num, PinionsApp, Point, Rect};
 }

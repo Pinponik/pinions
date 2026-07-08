@@ -7,17 +7,32 @@
 ```rust
 use pinions::prelude::*;
 
-fn main() {
-    type App = i32;
-    impl PinionsApp for App {}
-    let app = App::new();
-    let plus = easy::Button::label(|_| "+".to_string()).on_click(|&mut app| app += 1);
-    let display = easy::Label::label(|app| app.to_string());
-    let minus = easy::Button::label(|_| "-".to_string()).on_click(|&mut app| app -= 1);
+struct CounterApp {
+    counter: i32,
+    buffer: Str<16>,
+}
 
-    let win = easy::Window::label(|_| "Counter");
-    win.widgets().push(vec![plus, display, minus]);
-    win.run(app);    
+fn main() {
+    let app = CounterApp {
+        counter: 0,
+        buffer: Str::new(),
+    };
+
+    let mut win = easy::Window::title("Counter");
+
+    win.run(app, |app| {
+        (
+            easy::Button::label(|_|"+").on_click(|state| state.counter += 1),
+            
+            easy::Label::label(|state| {
+                let mut txt = Str::new();
+                let _ = core::fmt::write(&mut txt, format_args!("{}", state.counter));
+                txt
+            }),
+            
+            easy::Button::label(|_| "-").on_click(|state| state.counter -= 1),
+        )
+    });
 }
 ```
 
