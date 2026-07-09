@@ -1,5 +1,5 @@
 [workspace]
-members = ["pinions-macros", "examples/window", "examples/counter"]
+members = ["pinions-macros", "examples/counter"]
 resolver = "2"
 
 [profile.release]
