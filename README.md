@@ -1,12 +1,4 @@
-#                       ____  _       _
-
-#                      / __ \(_)___  (_)___  ____  _____
-
-#                     / /_/ / / __ \/ / __ \/ __ \/ ___/
-
-#                    / ____/ / / / / / /_/ / / / (__  )
-
-#                   /_/   /_/_/ /_/_/\____/_/ /_/____/
+# Pinions
 
 A fast and easy-to-use GUI library running on microcontrollers
 
