@@ -6,7 +6,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Documentation
         run: |
           sudo apt-get update
@@ -14,3 +18,10 @@ jobs:
           pandoc -f markdown -t html -s README.md -o target/readme.html
           mkdir -p docs
           cp target/readme.html docs/index.html
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "GitHub Actions Bot: .github/workflows/....gh-pages.yml"
+          git config --global user.email "you@example.com"
+          git add --all
+          git commit -m "Pushing to GitHub Pages: https://pinponik.github.io/pinions/" || echo "No changes to commit"
+          git push
