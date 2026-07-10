@@ -17,7 +17,6 @@ jobs:
           sudo apt-get install -y pandoc
           mkdir -p docs
           pandoc -f markdown -t html -s README.md --metadata title="Pinions" -o docs/index.html
-          cp target/readme.html docs/index.html
       - name: Commit and Push changes
         run: |
           git config --global user.name "GitHub Actions Bot: .github/workflows/....gh-pages.yml"
