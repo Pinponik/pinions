@@ -14,10 +14,3 @@ jobs:
         run: cargo check
       - name: Cargo clippy
         run: cargo clippy
-      - name: Documentation
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc
-          pandoc -f markdown -t html -s README.md -o target/readme.html
-          mkdir -p docs
-          cp target/readme.html docs/index.html
